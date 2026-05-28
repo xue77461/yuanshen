@@ -4,3 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/api/feishu-open-apis/*"
+  to = "https://open.feishu.cn/open-apis/:splat"
+  status = 200
+  force = true
