@@ -32,14 +32,27 @@
           <td>{{ item.关卡 }}</td>
           <td>
             <div class="status-cell">
-              <span :class="['badge', statusClassMap[item.状态] || 'pending']">{{ item.状态 }}</span>
+              <span :class="['badge', statusClassMap[item.状态] || 'pending']">
+                <UiIcon :name="statusIconMap[item.状态] || 'pending'" size="sm" />
+                {{ item.状态 }}
+              </span>
               <div class="status-actions">
+                <button
+                  class="button secondary small"
+                  type="button"
+                  :disabled="item.状态 !== '取消'"
+                  @click.stop="$emit('start', item.id)"
+                >
+                  <UiIcon name="sparkles" size="sm" />
+                  开始
+                </button>
                 <button
                   class="button gold small"
                   type="button"
-                  :disabled="item.状态 === '结束'"
+                  :disabled="item.状态 === '结束' || item.状态 === '取消'"
                   @click.stop="$emit('finish', item.id)"
                 >
+                  <UiIcon name="finished" size="sm" />
                   结束
                 </button>
                 <button
@@ -48,6 +61,7 @@
                   :disabled="item.状态 === '取消' || item.状态 === '结束'"
                   @click.stop="$emit('cancel', item.id)"
                 >
+                  <UiIcon name="cancelled" size="sm" />
                   取消
                 </button>
               </div>
@@ -65,9 +79,11 @@
           <td>
             <div class="row-actions">
               <button class="button secondary small" type="button" @click.stop="$emit('edit', item.id)">
+                <UiIcon name="edit" size="sm" />
                 编辑
               </button>
               <button class="button danger small" type="button" @click.stop="$emit('remove', item.id)">
+                <UiIcon name="trash" size="sm" />
                 删除
               </button>
             </div>
@@ -79,10 +95,20 @@
 </template>
 
 <script>
+import UiIcon from '@/components/UiIcon.vue';
 import { displayDateTime, displayDuration, formatIncome, statusClassMap } from '@/utils/order';
+
+const statusIconMap = {
+  待开始: 'pending',
+  结束: 'finished',
+  取消: 'cancelled'
+};
 
 export default {
   name: 'OrdersTable',
+  components: {
+    UiIcon
+  },
   props: {
     orders: {
       type: Array,
@@ -99,7 +125,8 @@ export default {
   },
   data() {
     return {
-      statusClassMap
+      statusClassMap,
+      statusIconMap
     };
   },
   methods: {

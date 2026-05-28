@@ -2,14 +2,26 @@
   <article class="calendar-shell">
     <div class="section-head">
       <div>
-        <h2>时间管理</h2>
+        <h2 class="section-title-with-icon">
+          <UiIcon name="calendar" size="sm" />
+          <span>时间管理</span>
+        </h2>
         <p>{{ summary }}</p>
       </div>
       <div class="calendar-controls">
-        <button class="button secondary small" type="button" @click="$emit('prev')">上月</button>
+        <button class="button secondary small" type="button" @click="$emit('prev')">
+          <UiIcon name="left" size="sm" />
+          上月
+        </button>
         <strong class="calendar-month-label">{{ monthLabel }}</strong>
-        <button class="button ghost small" type="button" @click="$emit('today')">本月</button>
-        <button class="button secondary small" type="button" @click="$emit('next')">下月</button>
+        <button class="button ghost small" type="button" @click="$emit('today')">
+          <UiIcon name="traveler" size="sm" />
+          本月
+        </button>
+        <button class="button secondary small" type="button" @click="$emit('next')">
+          下月
+          <UiIcon name="right" size="sm" />
+        </button>
       </div>
     </div>
 
@@ -42,7 +54,7 @@
                 :aria-label="`在 ${day.key} 新建订单`"
                 @click="$emit('create', day.key)"
               >
-                +
+                <UiIcon name="plus" size="sm" />
               </button>
             </div>
             <div class="calendar-event-list">
@@ -68,8 +80,13 @@
 </template>
 
 <script>
+import UiIcon from '@/components/UiIcon.vue';
+
 export default {
   name: 'CalendarBoard',
+  components: {
+    UiIcon
+  },
   props: {
     days: {
       type: Array,

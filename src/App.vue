@@ -1,7 +1,5 @@
 <template>
   <main class="page">
-    <HeroBanner :can-create="workspaceReady" @create="openCreateForm" />
-
     <section v-if="showAccessGate" class="entry-shell">
       <article class="entry-card">
         <div class="section-head">
@@ -44,28 +42,54 @@
     </section>
 
     <template v-else>
-      <StatsGrid :items="statsItems" />
+      <nav class="view-menu" aria-label="工作区菜单">
+        <button
+          v-for="item in viewMenus"
+          :key="item.value"
+          :class="['view-menu-button', { active: activeMenu === item.value }]"
+          type="button"
+          :aria-pressed="activeMenu === item.value"
+          @click="activeMenu = item.value"
+        >
+          <UiIcon :name="item.icon" size="sm" />
+          <span>{{ item.label }}</span>
+        </button>
+      </nav>
 
-      <section :class="['workspace', isFormVisible ? 'form-open' : 'form-closed']">
-        <div v-if="isFormVisible" class="form-column">
-          <OrderFormPanel
-            :value="formModel"
-            :visible="isFormVisible"
-            :duration-options="formDurationOptions"
-            :can-delete="Boolean(activeOrderId)"
-            :feishu-ready="feishuReady"
-            :form-title="formTitle"
-            :editing-hint="editingHint"
-            @save="handleSave"
-            @cancel="resetForm"
-            @remove="handleDeleteSelected"
-          />
+      <section class="fun-tip-strip" aria-label="玩趣提示">
+        <div class="fun-tip-head">
+          <span class="fun-tip-badge">
+            <UiIcon name="sparkles" size="sm" />
+            派蒙小贴士
+          </span>
+          <p>一点轻松提示，不影响正事，但会让页面没那么板着脸。</p>
         </div>
+        <div class="fun-tip-list">
+          <article v-for="tip in activePlayfulTips" :key="tip.title" class="fun-tip-card">
+            <span class="fun-tip-icon">
+              <UiIcon :name="tip.icon" size="sm" />
+            </span>
+            <div>
+              <strong>{{ tip.title }}</strong>
+              <p>{{ tip.text }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
 
+      <section v-if="activeMenu === MENU_STATS" class="stats-view">
+        <StatsGrid :items="statsItems" @action="handleStatsAction" />
+        <StatsDashboard :orders="orders" :show-income="showIncomeStats" />
+      </section>
+
+      <section v-if="activeMenu === MENU_ORDERS" class="workspace form-closed">
         <article class="table-shell">
           <div class="section-head">
             <div>
-              <h2>订单列表</h2>
+              <h2 class="section-title-with-icon">
+                <UiIcon name="map" size="sm" />
+                <span>订单列表</span>
+              </h2>
             </div>
           </div>
 
@@ -73,28 +97,52 @@
             <div class="toolbar-group">
               <span :class="['sync-status', syncTone]">{{ syncStatusText }}</span>
               <button class="button ghost small" type="button" :disabled="!feishuReady" @click="reloadFromSource()">
+                <UiIcon name="reload" size="sm" />
                 重新拉取
               </button>
             </div>
             <div class="toolbar-group search-bar">
-              <input v-model.trim="currentSearch" type="search" placeholder="搜索微信名 / 关卡 / 状态">
+              <label class="search-input">
+                <UiIcon name="search" size="sm" />
+                <input v-model.trim="currentSearch" type="search" placeholder="搜索微信名 / 关卡 / 状态">
+              </label>
+              <button class="button primary small create-order-button" type="button" :disabled="!workspaceReady" @click="openCreateForm()">
+                <UiIcon name="plus" size="sm" />
+                新建订单
+              </button>
             </div>
           </div>
 
+          <div class="status-tabs" role="tablist" aria-label="订单状态切换">
+            <button
+              v-for="tab in statusTabs"
+              :key="tab.value"
+              :class="['status-tab', { active: activeStatusTab === tab.value }]"
+              type="button"
+              :aria-pressed="activeStatusTab === tab.value"
+              @click="activeStatusTab = tab.value"
+            >
+              <UiIcon :name="tab.icon" size="sm" />
+              <span>{{ tab.label }}</span>
+              <strong>{{ tab.count }}</strong>
+            </button>
+          </div>
+
           <OrdersTable
-            :orders="filteredOrders"
+            :orders="listedOrders"
             :active-order-id="activeOrderId"
             :empty-message="tableEmptyMessage"
             @select="fillForm"
             @edit="fillForm"
-            @finish="handleStatusChange($event, '结束')"
-            @cancel="handleStatusChange($event, '取消')"
+            @start="handleStatusChange($event, STATUS_PENDING)"
+            @finish="handleStatusChange($event, STATUS_FINISHED)"
+            @cancel="handleStatusChange($event, STATUS_CANCELLED)"
             @remove="handleRemove"
           />
         </article>
       </section>
 
-      <section class="calendar-section">
+      <section v-if="activeMenu === MENU_CALENDAR" class="calendar-section">
         <CalendarBoard
           :days="calendarDays"
           :month-label="monthLabel"
@@ -107,7 +155,31 @@
           @open="fillForm"
         />
       </section>
+
+      <div v-if="isFormVisible" class="modal-backdrop order-form-backdrop" @click.self="resetForm">
+        <OrderFormPanel
+          class="modal-card form-modal-card"
+          :value="formModel"
+          :visible="isFormVisible"
+          :duration-options="formDurationOptions"
+          :can-delete="Boolean(activeOrderId)"
+          :feishu-ready="feishuReady"
+          :form-title="formTitle"
+          :editing-hint="editingHint"
+          @save="handleSave"
+          @cancel="resetForm"
+          @remove="handleDeleteSelected"
+        />
+      </div>
     </template>
+
+    <footer class="page-footer">
+      <div class="page-footer-signature">
+        <UiIcon name="sparkles" size="sm" />
+        <span>Author: xue.zhang</span>
+      </div>
+      <p>提瓦特委托台记录中，愿每一单都顺利结束。</p>
+    </footer>
 
     <ToastMessage :visible="toast.visible" :message="toast.message" :tone="toast.tone" />
   </main>
@@ -115,11 +187,12 @@
 
 <script>
 import CalendarBoard from '@/components/CalendarBoard.vue';
-import HeroBanner from '@/components/HeroBanner.vue';
 import OrderFormPanel from '@/components/OrderFormPanel.vue';
 import OrdersTable from '@/components/OrdersTable.vue';
+import StatsDashboard from '@/components/StatsDashboard.vue';
 import StatsGrid from '@/components/StatsGrid.vue';
 import ToastMessage from '@/components/ToastMessage.vue';
+import UiIcon from '@/components/UiIcon.vue';
 import {
   buildFeishuStatusText,
   isFeishuConfigReady,
@@ -134,8 +207,6 @@ import {
   buildCalendarEventMap,
   buildEmptyForm,
   createOrder,
-  displayDateTime,
-  difficultyOptions,
   durationOptions,
   ensureDurationInOptions,
   formatDateKey,
@@ -150,6 +221,38 @@ import {
   sanitizeText,
   statusClassMap
 } from '@/utils/order';
+
+const STATUS_PENDING = '待开始';
+const STATUS_FINISHED = '结束';
+const STATUS_CANCELLED = '取消';
+const STATUS_ALL = '全部';
+const MENU_ORDERS = 'orders';
+const MENU_CALENDAR = 'calendar';
+const MENU_STATS = 'stats';
+const statusTabOrder = [STATUS_PENDING, STATUS_ALL, STATUS_FINISHED, STATUS_CANCELLED];
+const statusTabIconMap = {
+  [STATUS_PENDING]: 'pending',
+  [STATUS_ALL]: 'all',
+  [STATUS_FINISHED]: 'finished',
+  [STATUS_CANCELLED]: 'cancelled'
+};
+const playfulTipMap = {
+  [MENU_ORDERS]: [
+    { title: '派蒙催单中', text: '先把待开始的单子清一轮，再开新单，节奏会稳很多。', icon: 'guide' },
+    { title: '胡桃提醒', text: '取消单可以重新开始，结束单可别再回头折腾。', icon: 'sparkles' },
+    { title: '凯瑟琳速报', text: '搜索框支持微信名、关卡和状态混合检索，翻单子更快。', icon: 'search' }
+  ],
+  [MENU_CALENDAR]: [
+    { title: '芙宁娜排期建议', text: '把高难单错峰排开，日历一平整，心态也会平整。', icon: 'calendar' },
+    { title: '今日不爆单', text: '点日历里的 + 可以直接落单到当天，空档时间别浪费。', icon: 'plus' },
+    { title: '时间守护中', text: '点日历事件会直接跳回订单表单，不用来回翻。', icon: 'reload' }
+  ],
+  [MENU_STATS]: [
+    { title: '摩拉小剧场', text: '收入默认躲起来了，点一下查看，摩拉才肯露脸。', icon: 'coin' },
+    { title: '数据会说话', text: '折线图看近 7 天，圆形图看状态分布，适合追趋势。', icon: 'all' },
+    { title: '月度复盘时间', text: '月底翻一眼月收入条形图，哪天该加单一清二楚。', icon: 'calendar' }
+  ]
+};
 
 function buildAppCredentialConfig(config) {
   if (!config) {
@@ -174,25 +277,48 @@ function buildAccessDraft(config) {
   };
 }
 
+function prioritizePendingOrders(sourceOrders) {
+  return sourceOrders
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftPriority = left.item.状态 === STATUS_PENDING ? 0 : 1;
+      const rightPriority = right.item.状态 === STATUS_PENDING ? 0 : 1;
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+      return left.index - right.index;
+    })
+    .map(({ item }) => item);
+}
+
 export default {
   name: 'App',
   components: {
     CalendarBoard,
-    HeroBanner,
     OrderFormPanel,
     OrdersTable,
+    StatsDashboard,
     StatsGrid,
-    ToastMessage
+    ToastMessage,
+    UiIcon
   },
   data() {
     const today = new Date();
     const initialConfig = buildAppCredentialConfig(loadFeishuConfig());
     const hasStoredConfig = isFeishuConfigReady(initialConfig);
     return {
+      STATUS_PENDING,
+      STATUS_FINISHED,
+      STATUS_CANCELLED,
+      MENU_ORDERS,
+      MENU_CALENDAR,
+      MENU_STATS,
       orders: [],
       activeOrderId: null,
       isFormVisible: false,
       currentSearch: '',
+      activeStatusTab: STATUS_PENDING,
+      activeMenu: MENU_ORDERS,
       calendarCursor: new Date(today.getFullYear(), today.getMonth(), 1),
       formModel: buildEmptyForm(),
       feishuConfig: initialConfig,
@@ -204,6 +330,7 @@ export default {
       accessForm: buildAccessDraft(initialConfig),
       hasValidatedAccess: false,
       isAccessSubmitting: false,
+      showIncomeStats: false,
       toast: {
         visible: false,
         message: '',
@@ -224,20 +351,55 @@ export default {
     },
     statsItems() {
       const total = this.orders.length;
-      const pending = this.orders.filter((item) => item.状态 === '待开始').length;
-      const finished = this.orders.filter((item) => item.状态 === '结束').length;
+      const pending = this.orders.filter((item) => item.状态 === STATUS_PENDING).length;
+      const finished = this.orders.filter((item) => item.状态 === STATUS_FINISHED).length;
       const income = this.orders
-        .filter((item) => item.状态 !== '取消')
+        .filter((item) => item.状态 !== STATUS_CANCELLED)
         .reduce((sum, item) => sum + normalizeIncome(item.收入), 0);
 
       return [
-        { label: '总订单数', value: String(total) },
-        { label: '待开始', value: String(pending) },
-        { label: '已结束', value: String(finished) },
-        { label: '总收入', value: formatIncome(income) }
+        { label: '总订单数', value: String(total), icon: 'all', helper: '飞书中的全部委托', tone: 'rose' },
+        { label: '待开始', value: String(pending), icon: 'pending', helper: '默认优先展示的订单', tone: 'amber' },
+        { label: '已结束', value: String(finished), icon: 'finished', helper: '已经交付完成的单子', tone: 'jade' },
+        {
+          label: '总收入',
+          value: this.showIncomeStats ? formatIncome(income) : '******',
+          icon: 'coin',
+          helper: this.showIncomeStats ? '取消单不会计入收入' : '默认隐藏金额',
+          tone: 'gold',
+          action: 'toggle-income',
+          actionLabel: this.showIncomeStats ? '点击隐藏' : '点击查看'
+        }
       ];
     },
-    filteredOrders() {
+    viewMenus() {
+      return [
+        { value: MENU_ORDERS, label: '订单列表', icon: 'map' },
+        { value: MENU_CALENDAR, label: '日历', icon: 'calendar' },
+        { value: MENU_STATS, label: '数据统计', icon: 'all' }
+      ];
+    },
+    activePlayfulTips() {
+      return playfulTipMap[this.activeMenu] || playfulTipMap[MENU_ORDERS];
+    },
+    statusTabs() {
+      const counts = this.orders.reduce((result, item) => {
+        result[item.状态] = (result[item.状态] || 0) + 1;
+        return result;
+      }, {
+        [STATUS_PENDING]: 0,
+        [STATUS_FINISHED]: 0,
+        [STATUS_CANCELLED]: 0
+      });
+
+      return statusTabOrder.map((status) => ({
+        value: status,
+        label: status,
+        icon: statusTabIconMap[status],
+        count: status === STATUS_ALL ? this.orders.length : counts[status] || 0
+      }));
+    },
+    searchedOrders() {
       const keyword = this.currentSearch.trim().toLowerCase();
       if (!keyword) {
         return this.orders;
@@ -249,6 +411,13 @@ export default {
           .toLowerCase()
           .includes(keyword);
       });
+    },
+    listedOrders() {
+      const statusScopedOrders = this.activeStatusTab === STATUS_ALL
+        ? this.searchedOrders
+        : this.searchedOrders.filter((item) => item.状态 === this.activeStatusTab);
+
+      return prioritizePendingOrders(statusScopedOrders);
     },
     formTitle() {
       return this.activeOrderId ? '编辑订单' : '新增订单';
@@ -263,8 +432,9 @@ export default {
       return ensureDurationInOptions(this.formModel.duration, durationOptions);
     },
     tableEmptyMessage() {
+      const currentScope = this.activeStatusTab === STATUS_ALL ? '当前筛选' : `${this.activeStatusTab}状态`;
       return this.feishuReady
-        ? '当前飞书表中没有匹配订单，试试新增一条，或者清空搜索条件。'
+        ? `${currentScope}下没有匹配订单，试试切换状态或清空搜索条件。`
         : '尚未完成飞书验证，请先输入 App ID、App Secret 和 spreadsheetToken。';
     },
     monthLabel() {
@@ -272,7 +442,7 @@ export default {
     },
     calendarDays() {
       const monthDate = new Date(this.calendarCursor.getFullYear(), this.calendarCursor.getMonth(), 1);
-      const eventMap = buildCalendarEventMap(this.filteredOrders);
+      const eventMap = buildCalendarEventMap(this.searchedOrders);
       const startDate = getCalendarStartDate(monthDate);
       const todayKey = formatDateKey(new Date());
 
@@ -318,6 +488,11 @@ export default {
     window.clearTimeout(this.toastTimer);
   },
   methods: {
+    handleStatsAction(action) {
+      if (action === 'toggle-income') {
+        this.showIncomeStats = !this.showIncomeStats;
+      }
+    },
     setSyncStatus(message, tone = '') {
       this.syncStatusText = message;
       this.syncTone = tone;
@@ -344,6 +519,7 @@ export default {
         return;
       }
 
+      this.activeMenu = MENU_ORDERS;
       this.activeOrderId = null;
       this.formModel = buildEmptyForm();
       if (initialDateTime) {
@@ -364,6 +540,7 @@ export default {
         return;
       }
 
+      this.activeMenu = MENU_ORDERS;
       this.formModel = {
         wechatName: order.微信名,
         scheduleTime: normalizeDateTime(order.预约时间),
@@ -513,8 +690,22 @@ export default {
       }
 
       const current = this.orders[index];
-      if (current.状态 === '结束' && nextStatus === '取消') {
+      if (current.状态 === nextStatus) {
+        return;
+      }
+
+      if (current.状态 === STATUS_CANCELLED && nextStatus === STATUS_FINISHED) {
+        this.showToast('已取消订单不能直接结束，请先重新开始。', 'error');
+        return;
+      }
+
+      if (current.状态 === STATUS_FINISHED && nextStatus === STATUS_CANCELLED) {
         this.showToast('已结束订单不能再取消。', 'error');
+        return;
+      }
+
+      if (current.状态 !== STATUS_CANCELLED && nextStatus === STATUS_PENDING) {
+        this.showToast('只有已取消订单才能重新开始。', 'error');
         return;
       }
 
@@ -522,8 +713,8 @@ export default {
       const updated = createOrder({
         ...current,
         状态: nextStatus,
-        结束时间: nextStatus === '结束' ? now : '',
-        取消时间: nextStatus === '取消' ? now : ''
+        结束时间: nextStatus === STATUS_FINISHED ? now : '',
+        取消时间: nextStatus === STATUS_CANCELLED ? now : ''
       });
 
       const nextOrders = this.orders.map((item, itemIndex) => (itemIndex === index ? updated : item));
@@ -536,7 +727,7 @@ export default {
         this.fillForm(updated);
       }
 
-      this.showToast(`订单已标记为${nextStatus}。`, 'success');
+      this.showToast(nextStatus === STATUS_PENDING ? '订单已重新开始。' : `订单已标记为${nextStatus}。`, 'success');
     },
     async handleRemove(id) {
       const order = this.orders.find((item) => item.id === id);
